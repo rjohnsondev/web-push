@@ -38,8 +38,9 @@ import qualified Data.ByteArray                  as ByteArray
 import Control.Monad.IO.Class                                  (MonadIO, liftIO)
 import Control.Monad.Except                                    (runExceptT)
 
-import Control.Lens.Operators                                  ((&), (.~))
-
+import Control.Lens.Operators                                  ((&), (.~), (^.))
+import qualified Data.Text.Encoding as TE
+import qualified Data.Text.Encoding.Error as TEE
 
 
 type VAPIDKeys = ECDSA.KeyPair
@@ -50,7 +51,8 @@ data VAPIDClaims = VAPIDClaims { vapidAud :: JWT.Audience
                                }
 -- JSON Web Token for VAPID
 webPushJWT :: MonadIO m => VAPIDKeys -> VAPIDClaims -> m (Either (JOSE.Error.Error) LB.ByteString)
-webPushJWT vapidKeys vapidClaims = do
+webPushJWT vapidKeys (VAPIDClaims {..}) = do
+            {-
     let ECC.Point publicKeyX publicKeyY = ECDSA.public_q $ ECDSA.toPublicKey vapidKeys
         privateKeyNumber = ECDSA.private_d $ ECDSA.toPrivateKey vapidKeys
 
@@ -71,20 +73,24 @@ webPushJWT vapidKeys vapidClaims = do
 
         return $ JOSE.Compact.encodeCompact jwtData
 
+            -}
             ----------------------------
-            {-
             -- Manual implementation without using the JWT libraries.
             -- This works as well.
             -- Kept here mainly as process explanation.
 
             -- JWT base 64 encoding is without padding
             let messageForJWTSignature = let encodedJWTPayload = b64UrlNoPadding $ LB.toStrict $ A.encode $ A.object $
-                                                 [ "aud" .= (TE.decodeUtf8With TE.lenientDecode $
-                                                                (if secure initReq then "https://" else "http://") ++ (host initReq)
-                                                            )
+                                                 -- [ "aud" .= ((head aud) ^. JWT.string)
+                                                 [ "aud" .= vapidAud
+                                                 -- [ "aud" .= (TE.decodeUtf8With TEE.lenientDecode $
+                                                 --                (if secure initReq then "https://" else "http://") ++ (host initReq)
+                                                 --            )
                                                  -- jwt expiration time
-                                                 , "exp" .= (formatTime defaultTimeLocale "%s" $ addUTCTime 3000 time)
-                                                 , "sub" .= ("mailto: " ++ (senderEmail pushNotification))
+                                                 , "exp" .= vapidExp
+                                                 -- , "exp" .= (formatTime defaultTimeLocale "%s" $ addUTCTime 3000 time)
+                                                 , "sub" .= vapidSub
+                                                 -- , "sub" .= ("mailto: " ++ (senderEmail pushNotification))
                                                  ]
 
                                              encodedJWTHeader = b64UrlNoPadding $ LB.toStrict $ A.encode $ A.object $
@@ -104,8 +110,7 @@ webPushJWT vapidKeys vapidClaims = do
                              (Binary.encode $ int32Bytes signR) <>
                              (Binary.encode $ int32Bytes signS)
 
-            return $ Right $ messageForJWTSignature <> "." <> encodedJWTSignature
-            -}
+            return $ Right $ (LB.fromStrict $ messageForJWTSignature <> "." <> encodedJWTSignature)
             ----------------------------
 
 
