@@ -49,14 +49,14 @@ import qualified Data.ByteString.Base64.URL.Lazy as B64.URL.Lazy
 import Data.Time.Clock                                         (getCurrentTime)
 import Data.Time                                               (addUTCTime)
 
-import Network.HTTP.Client                                     (Manager, httpLbs, parseRequest, HttpException(HttpExceptionRequest), HttpExceptionContent(StatusCodeException), RequestBody(..), requestBody, requestHeaders, method, host, secure, responseStatus)
+import Network.HTTP.Client                                     (Manager, setRequestCheckStatus, httpLbs, parseRequest, HttpException(HttpExceptionRequest), HttpExceptionContent(StatusCodeException), RequestBody(..), requestBody, requestHeaders, method, host, secure, responseStatus)
 import Network.HTTP.Types                                      (hContentType, hAuthorization, hContentEncoding)
 import Network.HTTP.Types.Status                               (Status(statusCode))
 
 import qualified Crypto.JOSE.Error               as JOSE.Error
 import Crypto.Error                                            (CryptoError)
 
-import Control.Exception.Base                                  (SomeException(..), fromException)
+import Control.Exception.Base                                  (SomeException(..), fromException, try)
 import Control.Monad.Catch.Pure                                (runCatchT)
 import Control.Monad.IO.Class                                  (MonadIO, liftIO)
 
@@ -184,12 +184,13 @@ sendPushNotification vapidKeys httpManager pushNotification = do
                                                   , requestBody = RequestBodyBS $ encryptedMessage encryptionOutput
                                                   }
 
-                            eitherResp <- runCatchT $ liftIO $ httpLbs request httpManager
+                            eitherResp <- liftIO $ try $ httpLbs (setRequestCheckStatus request) httpManager
                             case eitherResp of
                                 Left err@(SomeException _) -> case fromException err of
                                     Just (HttpExceptionRequest _ (StatusCodeException resp _))
                                         -- when the endpoint is invalid, we need to remove it from database
-                                        |(statusCode (responseStatus resp) == 404) -> return $ Left RecepientEndpointNotFound
+                                        |(statusCode (responseStatus resp) == 404) -> return $ Left RecipientEndpointNotFound
+                                        |(statusCode (responseStatus resp) == 410) -> return $ Left RecipientEndpointNotFound
                                     _ -> return $ Left $ PushRequestFailed err
                                 Right _ -> return $ Right ()
 
@@ -231,5 +232,5 @@ data VAPIDKeysMinDetails = VAPIDKeysMinDetails { privateNumber :: Integer
 data PushNotificationError = EndpointParseFailed SomeException
                            | JWTGenerationFailed JOSE.Error.Error
                            | MessageEncryptionFailed CryptoError
-                           | RecepientEndpointNotFound
+                           | RecipientEndpointNotFound
                            | PushRequestFailed SomeException
