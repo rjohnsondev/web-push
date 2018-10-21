@@ -234,3 +234,4 @@ data PushNotificationError = EndpointParseFailed SomeException
                            | MessageEncryptionFailed CryptoError
                            | RecipientEndpointNotFound
                            | PushRequestFailed SomeException
+                           deriving (Show)
