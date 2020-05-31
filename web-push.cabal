@@ -24,9 +24,9 @@ library
                      , bytestring                    >= 0.9        && < 0.11
                      , base64-bytestring             >= 1.0.0.1    && < 1.1
                      , text                          >= 0.11       && < 2.0
-                     , cryptonite                    >= 0.25       && < 0.26
+                     , cryptonite                    >= 0.26       && < 0.27
                      , binary                        >= 0.7.5      && < 0.9
-                     , memory                        >= 0.14.5     && < 0.15
+                     , memory                        >= 0.15     && < 0.16
                      , random                        >= 1.1        && < 1.2
                      , http-client                   >= 0.6.0      && < 0.7
                      , http-types                    >= 0.8.6      && < 1.0
